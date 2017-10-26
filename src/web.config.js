@@ -1,4 +1,4 @@
-const Title = '通用后台系统'
+const Title = 'AI大脑'
 
 const MenuConfig = [
   {
@@ -47,78 +47,21 @@ const MenuConfig = [
     ]
   }
 ]
-
-const Main = resolve => require(['components/Main'], resolve)
-const Login = resolve => require(['views/login'], resolve)
-const Index = {
-  path: 'index',
-  component: resolve => require(['views/index'], resolve)
-}
-const Product = {
-  path: 'product',
-  component: resolve => require(['views/product/index'], resolve),
-  children: [
-    {
-      path: 'list',
-      component: resolve => require(['views/product/list'], resolve),
-      meta: {
-        title: '产品列表'
-      }
-    },
-    {
-      path: 'detail',
-      component: resolve => require(['views/product/detail'], resolve),
-      meta: {
-        title: '产品底层'
-      }
-    }
-  ]
-}
-const Demo = {
-  path: 'demo',
-  component: resolve => require(['views/demo/index'], resolve),
-  children: [
-    {
-      path: 'dialog',
-      component: resolve => require(['views/demo/dialog'], resolve),
-      meta: {
-        title: '弹出层示例'
-      }
-    },
-    {
-      path: 'form',
-      component: resolve => require(['views/demo/form'], resolve),
-      meta: {
-        title: '表单'
-      }
-    },
-    {
-      path: 'cool',
-      component: resolve => require(['views/demo/cool'], resolve),
-      meta: {
-        title: '效果'
-      }
-    }
-  ]
-}
 const RouterConfig = [
   {
     path: '/',
-    name: 'Main',
-    component: Main,
+    component: resolve => require(['views/test/index'], resolve),
     meta: {
-      title: ''
+      title: '大脑入口'
     },
-    children: [].concat([], Product, Demo, Index),
-    redirect: '/product/list'
+    children: []
   },
   {
-    path: '/login',
-    name: 'login',
-    component: Login,
+    path: '/test',
     meta: {
-      title: '登录'
-    }
+      title: '工具测试'
+    },
+    component: resolve => require(['views/test/index1'], resolve)
   }
 ]
 export {Title, MenuConfig, RouterConfig}
