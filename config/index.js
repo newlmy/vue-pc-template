@@ -4,10 +4,10 @@ var path = require('path')
 module.exports = {
   build: {
     env: require('./prod.env'),
-    index: path.resolve(__dirname, '../../../../agri_bpmn_v3/trunk/public/admin/index.html'),
-    assetsRoot: path.resolve(__dirname, '../../../../agri_bpmn_v3/trunk/public/admin'),
+    index: path.resolve(__dirname, '../../../agri_bpmn_v3/trunk/public/AI/index.html'),
+    assetsRoot: path.resolve(__dirname, '../../../agri_bpmn_v3/trunk/public/AI'),
     assetsSubDirectory: 'static',
-    assetsPublicPath: '/public/admin/',
+    assetsPublicPath: '/public/AI/',
     productionSourceMap: true,
     // Gzip off by default as many popular static hosts such as
     // Surge or Netlify already gzip all static assets for you.
