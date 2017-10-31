@@ -25,7 +25,7 @@
     >
       <div class="vue-canvas" ref="canvas">
         <div class="vue-canvas-target"
-             :class="{'cropper-move': !drawBard.editing}"
+             :class="{'cursor-move': !drawBard.editing, 'img-draw': drawBard.editing}"
              :style="{
                 'width': drawBard.imgBoxW + 'px',
                 'height': drawBard.imgBoxH + 'px',
@@ -40,28 +40,39 @@
             ref="targetImg"
           />
           <div
-            v-show="this.currentSquare.w>0"
-            class="vue-selected-square"
-            :style="{
-                'width': this.currentSquare.w + 'px',
-                'height': this.currentSquare.h + 'px',
-                'transform': 'translate3d('+ this.currentSquare.startOffsetX + 'px,' + this.currentSquare.startOffsetY + 'px,' + '0)'
-              }"
-          >
-            <span class="crop-info" v-if="this.currentSquare.w>0">{{ this.currentSquare.w }} × {{ this.currentSquare.h  }}</span>
-          </div>
-          <div
             class="vue-selected-square"
             v-for="(item, index) in squareness"
+            v-show="item.w>0 && item.h>0"
             :style="{
                 'width': item.w + 'px',
                 'height': item.h + 'px',
                 'transform': 'translate3d('+ item.startOffsetX + 'px,' + item.startOffsetY + 'px,' + '0)'
               }"
           >
-            <span class="crop-info" v-if="item.w > 0">{{ item.w }} × {{ item.h }}</span>
-            <span class="del-btn">
-            <i class="ali-icon-shanchu" v-if="item.w > 0" @click="clickDel(index)"></i>
+            <span class="square-info" v-if="item.w > 0">{{ item.w }} × {{ item.h }}</span>
+            <span class="del-btn" v-if="!item.isChange">
+              <i class="ali-icon-shanchu"  @click="clickDel(index)"></i>
+            </span>
+            <span
+              class="square-face"
+              :class="{'cursor-move': item.isMove}"
+              @dblclick.stop="clickSquare({e: $event, target: item})"
+              @mousedown.stop="mousedownSquare({e: $event, target: item})"
+              @mouseout.stop="mouseoutSquare"
+            ></span>
+            <span v-show="item.isChange">
+              <span class="square-line line-w" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: false, ableChangeY: true, dragPositionY: 'top'})"></span>
+              <span class="square-line line-a" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: false, dragPositionX: 'left'})"></span>
+              <span class="square-line line-s" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: false, ableChangeY: true, dragPositionY: 'bottom'})"></span>
+              <span class="square-line line-d" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: false, dragPositionX: 'right'})"></span>
+              <span class="square-move-point point1" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: true, dragPositionX: 'left', dragPositionY: 'top'})"></span>
+              <span class="square-move-point point2" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: false, ableChangeY: true, dragPositionY: 'top'})"></span>
+              <span class="square-move-point point3" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: true, dragPositionX: 'right', dragPositionY: 'top'})"></span>
+              <span class="square-move-point point4" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: false, dragPositionX: 'left'})"></span>
+              <span class="square-move-point point5" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: false, dragPositionX: 'right'})"></span>
+              <span class="square-move-point point6" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: true, dragPositionX: 'left', dragPositionY: 'bottom'})"></span>
+              <span class="square-move-point point7" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: false, ableChangeY: true, dragPositionY: 'bottom'})"></span>
+              <span class="square-move-point point8" @mousedown.stop="changeSquareSize({e: $event, target: item, ableChangeX: true, ableChangeY: true, dragPositionX: 'right', dragPositionY: 'bottom'})"></span>
             </span>
           </div>
         </div>
@@ -71,6 +82,7 @@
 </template>
 <script>
   import axios from 'axios'
+  import {isEmpty} from 'utils/index'
   class DrawBard {
     constructor ({width = 0, height = 0, startClientX = 0, startClientY = 0, imgBoxW = 0, imgBoxH = 0, moveX = 0, moveY = 0}) {
       this.w = width
@@ -122,41 +134,103 @@
       this.startOffsetY = startOffsetY
       this.defaultOffsetX = 0
       this.defaultOffsetY = 0
+      this.ableChangeX = true
+      this.ableChangeY = true
+      this.dragPositionX = ''
+      this.dragPositionY = ''
       this.drawing = false
-      this.isMoveout = false
+      this.isChange = false
+      this.isMove = false
       this.info = this.w + '*' + this.h
       this.style = ''
       this.className = ''
     }
-    startDraw ({startClientX, startClientY, startOffsetX, startOffsetY}) {
+    startChange ({startClientX, startClientY, startOffsetX, startOffsetY, ableChangeX = true, ableChangeY = true, dragPositionX = 'right', dragPositionY = 'bottom'}) {
+      if (!isEmpty(startOffsetX)) this.startOffsetX = startOffsetX
+      if (!isEmpty(startOffsetY)) this.startOffsetY = startOffsetY
       this.drawing = true
+      this.isChange = true
       this.startClientX = startClientX
       this.startClientY = startClientY
-      this.startOffsetX = startOffsetX
-      this.startOffsetY = startOffsetY
       this.defaultOffsetX = this.startOffsetX
       this.defaultOffsetY = this.startOffsetY
+      this.ableChangeX = ableChangeX
+      this.ableChangeY = ableChangeY
+      this.dragPositionX = dragPositionX
+      this.dragPositionY = dragPositionY
+      this.oldW = this.w
+      this.oldH = this.h
     }
     draw ({nowClientX, nowClientY, vue, drawBard}) {
       this.drawing && vue.$nextTick(() => {
         let fw = ~~(nowClientX - this.startClientX)
         let fh = ~~(nowClientY - this.startClientY)
-        if (fw > 0) {
-          this.w = fw > drawBard.maxDrawWidth - this.defaultOffsetX ? drawBard.maxDrawWidth - this.defaultOffsetX : fw
-        } else {
-          this.w = Math.abs(fw) > this.defaultOffsetX ? this.defaultOffsetX : Math.abs(fw)
-          this.startOffsetX = Math.abs(fw) > this.defaultOffsetX ? 0 : this.defaultOffsetX - Math.abs(fw)
+        if (this.ableChangeX) {
+          if (this.dragPositionX === 'right') {
+            if (fw > 0) {
+              this.w = this.oldW + fw > drawBard.maxDrawWidth - this.defaultOffsetX ? drawBard.maxDrawWidth - this.defaultOffsetX : this.oldW + fw
+            } else {
+              this.w = Math.abs(fw) < this.oldW ? this.oldW - Math.abs(fw) : Math.abs(fw) - this.oldW > this.defaultOffsetX ? this.defaultOffsetX : Math.abs(fw) - this.oldW
+              this.startOffsetX = Math.abs(fw) < this.oldW ? this.defaultOffsetX : Math.abs(fw) - this.oldW > this.defaultOffsetX ? 0 : this.defaultOffsetX - Math.abs(fw) + this.oldW
+            }
+          } else if (this.dragPositionX === 'left') {
+            if (fw > 0) {
+              this.w = this.oldW - fw > 0 ? this.oldW - fw : fw - this.oldW > drawBard.maxDrawWidth - this.defaultOffsetX - this.oldW ? drawBard.maxDrawWidth - this.defaultOffsetX - this.oldW : fw - this.oldW
+              this.startOffsetX = this.oldW - fw > 0 ? this.defaultOffsetX + fw : this.defaultOffsetX + this.oldW
+            } else {
+              this.w = Math.abs(fw) > this.defaultOffsetX ? this.oldW + this.defaultOffsetX : this.oldW + Math.abs(fw)
+              this.startOffsetX = Math.abs(fw) > this.defaultOffsetX ? 0 : this.defaultOffsetX - Math.abs(fw)
+            }
+          }
         }
-        if (fh > 0) {
-          this.h = fh > drawBard.maxDrawHeight - this.defaultOffsetY ? drawBard.maxDrawHeight - this.defaultOffsetY : fh
-        } else {
-          this.h = Math.abs(fh) > this.defaultOffsetY ? this.defaultOffsetY : Math.abs(fh)
-          this.startOffsetY = Math.abs(fh) > this.defaultOffsetY ? 0 : this.defaultOffsetY - Math.abs(fh)
+        if (this.ableChangeY) {
+          if (this.dragPositionY === 'top') {
+            if (fh > 0) {
+              this.h = this.oldH - fh > 0 ? this.oldH - fh : fh - this.oldH > drawBard.maxDrawHeight - this.oldH - this.defaultOffsetY ? drawBard.maxDrawHeight - this.defaultOffsetY - this.oldH : fh - this.oldH
+              this.startOffsetY = this.oldH - fh > 0 ? this.defaultOffsetY + fh : this.defaultOffsetY + this.oldH
+            } else {
+              this.h = Math.abs(fh) > this.defaultOffsetY ? this.oldH + this.defaultOffsetY : this.oldH + Math.abs(fh)
+              this.startOffsetY = Math.abs(fh) > this.defaultOffsetY ? 0 : this.defaultOffsetY - Math.abs(fh)
+            }
+          } else if (this.dragPositionY === 'bottom') {
+            if (fh > 0) {
+              this.h = this.oldH + fh > drawBard.maxDrawHeight - this.defaultOffsetY ? drawBard.maxDrawHeight - this.defaultOffsetY : this.oldH + fh
+            } else {
+              this.h = Math.abs(fh) < this.oldH ? this.oldH - Math.abs(fh) : Math.abs(fh) - this.oldH > this.defaultOffsetY ? this.defaultOffsetY : Math.abs(fh) - this.oldH
+              this.startOffsetY = Math.abs(fh) < this.oldH ? this.defaultOffsetY : Math.abs(fh) - this.oldH > this.defaultOffsetY ? 0 : this.defaultOffsetY - Math.abs(fh) + this.oldH
+            }
+          }
         }
       })
     }
     endDraw () {
       this.drawing = false
+    }
+    startMove ({startClientX, startClientY}) {
+      this.startClientX = startClientX
+      this.startClientY = startClientY
+      this.defaultOffsetX = this.startOffsetX
+      this.defaultOffsetY = this.startOffsetY
+      this.isMove = true
+    }
+    move ({nowClientX, nowClientY, vue, drawBard}) {
+      this.isMove && vue.$nextTick(() => {
+        let moveW = ~~(nowClientX - this.startClientX)
+        let moveH = ~~(nowClientY - this.startClientY)
+        if (moveW > 0) {
+          this.startOffsetX = moveW > drawBard.imgBoxW - this.w - this.defaultOffsetX ? drawBard.imgBoxW - this.w : this.defaultOffsetX + moveW
+        } else {
+          this.startOffsetX = Math.abs(moveW) < this.defaultOffsetX ? this.defaultOffsetX + moveW : 0
+        }
+        if (moveH > 0) {
+          this.startOffsetY = moveH > drawBard.imgBoxH - this.h - this.defaultOffsetY ? drawBard.imgBoxH - this.h : this.defaultOffsetY + moveH
+        } else {
+          this.startOffsetY = Math.abs(moveH) < this.defaultOffsetY ? this.defaultOffsetY + moveH : 0
+        }
+      })
+    }
+    endMove () {
+      this.isMove = false
     }
   }
   export default {
@@ -175,7 +249,8 @@
         info: true,
         fixedBox: false,
         drawBard: {},
-        currentSquare: {}
+        currentSquare: {},
+        currentSquareIndex: ''
       }
     },
     watch: {
@@ -183,6 +258,9 @@
         if (newVal !== oldVal) {
           this.initDrawbard()
         }
+      },
+      'drawBard.editing': function (oldVal, newVal) {
+        if (newVal) this.currentSquare.isChange = false
       }
     },
     methods: {
@@ -195,13 +273,17 @@
         if (!this.drawBard.editing) {
           this.drawBard.startMove(startX, startY, this)
         } else {
+          if (this.currentSquare.isChange && !!this.currentSquare.isChange) {
+            this.currentSquare.isChange = false
+          }
           this.currentSquare = new DrawSquareness({})
-          this.currentSquare.startDraw({
+          this.currentSquare.startChange({
             startClientX: startX,
             startClientY: startY,
             startOffsetX: offsetX,
             startOffsetY: offsetY
           })
+          this.squareness.push(this.currentSquare)
         }
       },
       mousemoveTarget (e) {
@@ -211,27 +293,54 @@
         if (!this.drawBard.editing) {
           this.drawBard.move(nowX, nowY, this)
         } else {
-          this.currentSquare.drawing && this.currentSquare.draw({nowClientX: nowX, nowClientY: nowY, vue: this, drawBard: this.drawBard})
+          if (this.currentSquare.isMove) {
+            this.currentSquare.move({nowClientX: nowX, nowClientY: nowY, vue: this, drawBard: this.drawBard})
+          } else {
+            this.currentSquare.drawing && this.currentSquare.isChange && this.currentSquare.draw({nowClientX: nowX, nowClientY: nowY, vue: this, drawBard: this.drawBard})
+          }
         }
       },
       mouseupTarget (e) {
         if (!this.drawBard.editing) {
           this.drawBard.endMove()
         } else {
+          this.currentSquare.isMove && this.currentSquare.endMove()
           this.currentSquare.drawing && this.currentSquare.endDraw()
-          if (this.currentSquare.w > 0 || this.currentSquare.h > 0) {
-            this.squareness.push(JSON.parse(JSON.stringify(this.currentSquare)))
-            this.currentSquare.w = 0
-            this.currentSquare.h = 0
-          }
         }
       },
       mouseoutTarget (e) {
         if (!this.drawBard.editing) {
           this.drawBard.endMove()
-        } else {
-          this.currentSquare.isMoveout && this.currentSquare.drawing && this.currentSquare.endDraw()
         }
+      },
+      changeSquareSize ({e, target, ableChangeX, ableChangeY, dragPositionX, dragPositionY}) {
+        let startClientX = e.clientX
+        let startClientY = e.clientY
+        this.currentSquare = target
+        this.currentSquare.startChange({startClientX, startClientY, ableChangeX, ableChangeY, dragPositionX, dragPositionY})
+      },
+      clickSquare ({e, target}) {
+        if (!this.drawBard.editing) return
+        if (target.isChange && !!target.isChange) return
+        if (this.currentSquare.isChange && !!this.currentSquare.isChange) {
+          this.currentSquare.isChange = false
+        }
+        this.currentSquare = target
+        this.currentSquare.isChange = true
+      },
+      mousedownSquare ({e, target}) {
+        if (!this.drawBard.editing) return
+        let startClientX = e.clientX
+        let startClientY = e.clientY
+        if (this.currentSquare.isChange && !!this.currentSquare.isChange) {
+          this.currentSquare.isChange = false
+        }
+        this.currentSquare = target
+        this.currentSquare.isChange = true
+        this.currentSquare.startMove({startClientX, startClientY})
+      },
+      mouseoutSquare (e) {
+        this.currentSquare.isMove && this.currentSquare.endMove()
       },
       uploadImg (e) {
         this.file = e.target.files[0]
@@ -259,12 +368,11 @@
         if (!this.squareness.length) return false
         let obj = []
         this.squareness.forEach((item) => {
-          obj.push({w: item.w, h: item.h, x: item.startOffsetX, y: item.startOffsetY, label: ''})
+          if (item.w > 0 && item.h > 0) obj.push({w: item.w, h: item.h, x: item.startOffsetX, y: item.startOffsetY, label: ''})
         })
         this.editing = false
         let formdata = new FormData()
         formdata.append('file', this.file)
-        console.log(JSON.stringify(obj))
         formdata.append('marks', JSON.stringify(obj))
         axios.post('http://192.168.10.117:93/app/add_image', formdata).then((response) => {
           console.log(response)
@@ -273,10 +381,19 @@
         })
       },
       initDrawbard () {
-        this.drawBard.moving = false
-        this.drawBard.editing = false
+        this.drawBard.w = 0
+        this.drawBard.h = 0
         this.drawBard.x = 0
         this.drawBard.y = 0
+        this.drawBard.imgBoxW = 0
+        this.drawBard.imgBoxH = 0
+        this.drawBard.maxDrawWidth = 0
+        this.drawBard.maxDrawHeight = 0
+        this.drawBard.moveX = 0
+        this.drawBard.moveY = 0
+        this.drawBard.editing = false
+        this.drawBard.moving = false
+        this.currentSquare = {}
         this.clearMarks()
       }
     },
@@ -317,10 +434,10 @@
     user-select: none;
     transform: none;
   }
-  .cropper-move {
+  .cursor-move {
     cursor: move;
   }
-  .cropper-crop {
+  .img-draw {
     cursor: crosshair;
   }
   .vue-selected-square {
@@ -329,40 +446,10 @@
     top: 0;
     border: 1px solid red
   }
-
-  .cropper-modal {
-    background: rgba(0, 0, 0, 0.5);
-  }
-
-  .cropper-crop-box {
-    /*border: 2px solid #39f;*/
-  }
-
-  .cropper-view-box {
-    display: block;
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-    outline: 1px solid #39f;
-    outline-color: rgba(51, 153, 255, 0.75);
-    user-select: none;
-  }
-
-  .cropper-view-box img {
-    user-select: none;
-  }
-
-  .cropper-face {
-    top: 0;
-    left: 0;
-    background-color: #fff;
-    opacity: 0.1;
-  }
-
-  .crop-info {
+  .square-info {
     position: absolute;
-    left: 0px;
-    top:0px;
+    left: -3px;
+    top: -23px;
     min-width: 65px;
     text-align: center;
     color: white;
@@ -370,11 +457,23 @@
     background-color: rgba(0, 0, 0, 0.5);
     font-size: 12px;
   }
+  .square-face {
+    cursor: default;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    user-select: none;
+    background-color: #fff;
+    opacity: 0.1;
+  }
+
   .del-btn {
     cursor: pointer;
     position: absolute;
     right: -10px;
-    top:-10px;
+    top: -23px;
     height: 20px;
     width: 20px;
     text-align: center;
@@ -385,7 +484,7 @@
     font-size: 12px;
   }
 
-  .crop-line {
+  .square-line {
     position: absolute;
     display: block;
     width: 100%;
@@ -421,12 +520,12 @@
     cursor: e-resize;
   }
 
-  .crop-point {
+  .square-move-point {
     position: absolute;
     width: 8px;
     height: 8px;
     opacity: .75;
-    background-color: #39f;
+    background-color: #ff514c;
     border-radius: 100%;
   }
 
@@ -483,7 +582,7 @@
   }
 
   @media screen and (max-width: 500px) {
-    .crop-point {
+    .square-move-point {
       position: absolute;
       width: 20px;
       height: 20px;
