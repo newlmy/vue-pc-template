@@ -29,7 +29,7 @@
              :style="{
                 'width': drawBard.imgBoxW + 'px',
                 'height': drawBard.imgBoxH + 'px',
-                'transform': 'scale(' + scale + ',' + scale + ') ' + 'translate3d('+ drawBard.x / scale + 'px,' + drawBard.y / scale + 'px,' + '0)'
+                'transform': 'scale(' + drawBard.scale + ',' + drawBard.scale + ') ' + 'translate3d('+ drawBard.x / drawBard.scale + 'px,' + drawBard.y / drawBard.scale + 'px,' + '0)'
                 + 'rotateZ('+ rotate * 90 +'deg)'
                 }"
              @mousedown="mousedownTarget"
@@ -46,7 +46,7 @@
             :style="{
                 'width': item.w + 'px',
                 'height': item.h + 'px',
-                'transform': 'translate3d('+ item.startOffsetX + 'px,' + item.startOffsetY + 'px,' + '0)'
+                'transform': 'translate3d('+ item.startOffsetX / drawBard.scale + 'px,' + item.startOffsetY / drawBard.scale + 'px,' + '0)'
               }"
           >
             <span class="square-info" v-if="item.w > 0">{{ item.w }} × {{ item.h }}</span>
@@ -95,8 +95,22 @@
       this.maxDrawHeight = this.h
       this.moveX = moveX
       this.moveY = moveY
+      this.scale = 1
+      this.canScale = false
       this.editing = false
       this.moving = false
+    }
+    startScale () {
+      this.canScale = true
+    }
+    changeSize ({change}) {
+      let coe = 0.2
+      coe = coe / this.imgBoxW > coe / this.imgBoxH ? coe / this.imgBoxH : coe / this.imgBoxW
+      let num = coe * change
+      num < 0 ? this.scale += Math.abs(num) : this.scale > Math.abs(num) ? this.scale -= Math.abs(num) : this.scale
+    }
+    endScale () {
+      this.canScale = false
     }
     startMove (startX, startY) {
       this.moving = true
@@ -240,17 +254,14 @@
         a: 1,
         b: '',
         rotate: 0,
-        scale: 1,
         count: '',
         open: true,
         editing: false,
         img: '',
         squareness: [],
-        info: true,
-        fixedBox: false,
+        support: '',
         drawBard: {},
-        currentSquare: {},
-        currentSquareIndex: ''
+        currentSquare: {}
       }
     },
     watch: {
@@ -264,6 +275,14 @@
       }
     },
     methods: {
+      // 缩放图片
+      scaleImg (e) {
+        let change = e.deltaY || e.wheelDelta
+        this.drawBard.changeSize({change})
+      },
+      // 移出框
+      cancleScale () {
+      },
       mousedownTarget (e) {
         e.preventDefault()
         let startX = e.clientX
@@ -428,6 +447,13 @@
     direction: ltr;
     touch-action: none;
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC');
+  }
+  .vue-canvas-drag-box {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
   }
   .vue-canvas-target img {
     position: relative;
