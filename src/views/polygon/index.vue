@@ -1,97 +1,142 @@
 <template>
-  <div>
-    <div style="position: absolute; z-index: 99">
-      <label for="file_input" class="el-button el-button--primary">
-        选择图片
-        <input type="file" id="file_input"  @change="uploadImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
-      </label>
-      <el-button type="primary">
-        打点数：{{currentPolygon && currentPolygon.dots.length > 0 ? currentPolygon.dots.length : 0}}
-      </el-button>
-      <span>
-        shift：切换拖拉/绘图；
-        command/ctrl+space: 闭合多边形，填充颜色；
-        command/ctrl+z：返回；
-        command/ctrl+d: 导出图片；
-      </span>
-    </div>
-    <div class="canvas-container" ref="canvasContainer">
-      <div
-        class="canvas-actual-layer"
-        :class="{'cursor-move': !editing}"
-        :style="{
+  <div class="bg-img-num1">
+    <el-row>
+      <div class="header">
+        {{imgName}}
+      </div>
+    </el-row>
+    <el-row class="main-container">
+      <el-col :span="2" class="tools">
+        <el-row class="tool-item">
+          打点数：{{currentPolygon && currentPolygon.dots.length > 0 ? currentPolygon.dots.length : 0}}
+        </el-row>
+        <el-row class="tool-item">
+          <label for="file_input" class="el-button el-tooltip item el-button--default">
+            选图
+            <input type="file" id="file_input"  @change="selectImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
+          </label>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Shift" placement="right-start">
+            <el-button @click="clickEdit">状态</el-button>
+          </el-tooltip>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Ctrl + Space" placement="right-start">
+            <el-button @click="finishPolygon">闭合</el-button>
+          </el-tooltip>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Ctrl + Z" placement="right-start">
+            <el-button @click="retract">返回</el-button>
+          </el-tooltip>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
+            <el-button @click="getCanvasImg">导出</el-button>
+          </el-tooltip>
+        </el-row>
+      </el-col>
+      <el-col :span="22" class="canvas-c">
+        <div class="canvas-container" ref="canvasContainer">
+          <div
+            class="canvas-actual-layer"
+            :class="{'cursor-move': !editing}"
+            :style="{
                 'width': imgBoxW + 'px',
                 'height': imgBoxH + 'px',
                 'transform': 'scale(' + scale + ',' + scale + ') ' + 'translate3d('+ x / scale + 'px,' + y / scale + 'px,' + '0)'
                 }"
-        @mousedown="mousedownTarget"
-        @mouseout="mouseoutTarget"
-        @mousemove="mousemoveTarget"
-        @mouseup="mouseupTarget"
-        @mousewheel="scaleImg"
-      >
-        <div class="canvas-bg-layer">
-          <img :src="img" alt="" style="display:block" ref="bgImg">
+            @mousedown="mousedownTarget"
+            @mouseout="mouseoutTarget"
+            @mousemove="mousemoveTarget"
+            @mouseup="mouseupTarget"
+            @mousewheel="scaleImg"
+          >
+            <div class="canvas-bg-layer">
+              <img :src="img" alt="" style="display:block" ref="bgImg">
+            </div>
+            <canvas id="canvas-layer" class="canvas" :width="imgBoxW" :height="imgBoxH"></canvas>
+          </div>
         </div>
-        <canvas id="canvas-layer" class="canvas" :width="imgBoxW" :height="imgBoxH"></canvas>
-      </div>
-    </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 <script>
   import {formatTime} from 'utils/util'
   class Polygon {
-    constructor ({ctx, strokeStyle = 'red', fillStyle = 'rgba(135, 210, 3, .8)', dotRadius = 1}) {
+    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(79, 205, 66, .5)', dotRadius = 3}) {
       this.ctx = ctx
       this.dotRadius = dotRadius
       this.strokeStyle = strokeStyle
+      this.lineWidth = lineWidth
       this.fillStyle = fillStyle
       this.dots = []
-      this.finish = false
       this.startX = ''
       this.startY = ''
+      this.lastX = ''
+      this.lastY = ''
     }
     startDraw ({x, y}) {
       this.startX = x
       this.startY = y
+      this.lastX = x
+      this.lastY = y
       this.ctx.beginPath()
-      this.ctx.fillStyle = this.fillStyle
-      this.ctx.strokeStyle = this.strokeStyle
+      this.ctx.fillStyle = this.strokeStyle
+      this.ctx.lineWidth = 1
       this.ctx.arc(x, y, this.dotRadius, 0, Math.PI * 2)
       this.ctx.fill()
     }
-    draw ({x, y}) {
+    stroke ({x, y}) {
+      this.ctx.beginPath()
+      this.ctx.strokeStyle = this.strokeStyle
+      this.ctx.lineWidth = this.lineWidth
+      this.ctx.moveTo(this.lastX, this.lastY)
       this.ctx.lineTo(x, y)
       this.ctx.stroke()
       this.dots.push({x, y})
+      this.lastX = x
+      this.lastY = y
     }
-    endDraw () {
-      this.draw({x: this.startX, y: this.startY})
-      this.finish = true
+    filling () {
+      this.ctx.fillStyle = this.fillStyle
+      this.ctx.strokeStyle = 'transparent'
+      this.ctx.lineWidth = 1
+      this.ctx.beginPath()
+      this.ctx.moveTo(this.startX, this.startY)
+      this.dots.forEach((dot, index) => {
+        this.ctx.lineTo(dot.x, dot.y)
+      })
+      this.ctx.closePath()
       this.ctx.fill()
     }
-    reDraw () {
-      this.startDraw({x: this.dots[0].x, y: this.dots[0].y})
-      for (let i = 1; i < this.dots.length; i++) {
-        this.ctx.lineTo(this.dots[i].x, this.dots[i].y)
-        this.ctx.stroke()
+    reStroke () {
+      this.dots.pop()
+      this.startDraw({x: this.startX, y: this.startY})
+      this.ctx.beginPath()
+      this.ctx.strokeStyle = this.strokeStyle
+      this.ctx.lineWidth = this.lineWidth
+      this.ctx.moveTo(this.startX, this.startY)
+      this.dots.forEach((dot, index) => {
+        this.ctx.lineTo(dot.x, dot.y)
+      })
+      this.ctx.stroke()
+      if (this.dots.length > 1) {
+        this.lastX = this.dots[this.dots.length - 1].x
+        this.lastY = this.dots[this.dots.length - 1].y
       }
-      if (this.finish) this.endDraw()
-    }
-    save () {
-      this.ctx.save()
     }
   }
   export default {
     name: 'polygon',
     data: () => {
       return {
-        activeIndex: '1',
-        activeIndex2: '1',
         canvasContainerW: '',
         canvasContainerH: '',
-        imgBoxW: '',
-        imgBoxH: '',
+        imgBoxW: 0,
+        imgBoxH: 0,
         startX: 0,
         startY: 0,
         x: 0,
@@ -107,8 +152,7 @@
         editing: false,
         retractCount: 0,
         img: '',
-        imgName: '',
-        imgType: ''
+        imgName: ''
       }
     },
     components: {},
@@ -117,22 +161,26 @@
     beforeMount () {},
     mounted () {
       let _this = this
-      this.imgReload(_this.getCanvas)
+      _this.$nextTick(() => {
+        _this.canvasContainerW = ~~(window.getComputedStyle(_this.$refs.canvasContainer).width.replace('px', ''))
+        _this.canvasContainerH = ~~(window.getComputedStyle(_this.$refs.canvasContainer).height.replace('px', ''))
+        _this.getCanvas()
+      })
+      _this.$refs.bgImg.onload = () => {
+        _this.imgBoxW = _this.$refs.bgImg.width
+        _this.imgBoxH = _this.$refs.bgImg.height
+        if (_this.imgBoxW > _this.canvasContainerW) _this.scale = _this.canvasContainerW / _this.imgBoxW
+        if (_this.imgBoxH * _this.scale > _this.canvasContainerH) _this.scale = _this.canvasContainerH / _this.imgBoxH
+        _this.x = (_this.canvasContainerW - _this.imgBoxW) / 2
+        _this.y = (_this.canvasContainerH - _this.imgBoxH) / 2
+      }
       document.onkeydown = function (e) {
         console.log(e)
         e.preventDefault()
-        if (e && (e.ctrlKey || e.metaKey) && (e.keyCode === 32 || e.keyCode === 8) && _this.editing && _this.currentPolygon) {
-          _this.finishPolygon()
-        }
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) {
-          _this.getCanvasImg()
-        }
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90 && _this.editing && _this.currentPolygon) {
-          _this.retract()
-        }
-        if (e && e.key === 'Shift' || e.keyCode === 16) {
-          _this.clickEdit()
-        }
+        if (e && (e.ctrlKey || e.metaKey) && (e.keyCode === 32 || e.keyCode === 8)) _this.finishPolygon()
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getCanvasImg()
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) _this.retract()
+        if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
       }
     },
     beforeUpdate () {},
@@ -140,29 +188,38 @@
     beforeDestroy () {},
     destroyed () {},
     methods: {
-      uploadImg (e) {
-        this.file = e.target.files[0]
-        this.imgType = this.file.type
-        this.imgName = this.file.name
+      selectImg (e) {
+        this.initCanvas()
+        this.previewImg(e)
+      },
+      initCanvas () {
+        this.ctx && this.clearRect()
+        this.polygons = []
+        this.currentPolygon = ''
+        this.scale = 1
+      },
+      previewImg (e) {
         if (!/\.(gif|jpg|jpeg|png|bmp|GIF|JPG|PNG)$/.test(e.target.value)) {
           this.$alert('请选择以下图片类型：.gif/jpeg/jpg/png/bmp', '提示')
           return false
         }
-        var reader = new FileReader()
+        this.file = e.target.files[0]
+        this.imgName = this.file.name
+        let reader = new FileReader()
         reader.onload = (e) => {
           this.img = e.target.result
-          this.ctx && this.clearRect()
-          this.polygons = []
-          this.currentPolygon = ''
-          this.scale = 1
         }
         reader.readAsDataURL(this.file)
+      },
+      getCanvas () {
+        this.canvas = document.getElementById('canvas-layer')
+        this.ctx = this.canvas.getContext('2d')
       },
       clickEdit () {
         this.editing = !this.editing
       },
       getCanvasImg () {
-        let type = 'jpeg'
+        let type = 'png'
         let imgdata = this.canvas.toDataURL('image/png')
         let fixtype = function (type) {
           type = type.toLocaleLowerCase().replace(/jpg/i, 'jpeg')
@@ -178,59 +235,43 @@
           event.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
           saveLink.dispatchEvent(event)
         }
-        let filename = '' + this.imgName.substring(0, this.imgName.lastIndexOf('.')) + '.' + formatTime().format('yyyyMMdd') + '.' + type
+        let filename = '' + this.imgName.substring(0, this.imgName.lastIndexOf('.')) + '_' + formatTime().format('yyyyMMdd') + '.' + type
         savaFile(imgdata, filename)
-      },
-      getCanvas () {
-        this.$nextTick(() => {
-          this.canvas = document.getElementById('canvas-layer')
-          this.ctx = this.canvas.getContext('2d')
-        })
       },
       createPolygon ({offsetX, offsetY}) {
         this.currentPolygon = new Polygon({ctx: this.ctx})
-        this.currentPolygon.save()
         this.currentPolygon.startDraw({x: offsetX, y: offsetY})
-        this.currentPolygon.draw({x: offsetX, y: offsetY})
+      },
+      drawPolygon ({offsetX, offsetY}) {
+        this.currentPolygon.stroke({x: offsetX, y: offsetY})
       },
       finishPolygon () {
-        this.currentPolygon.endDraw()
-        this.polygons.push(this.currentPolygon)
-        this.currentPolygon = ''
+        if (this.editing && this.currentPolygon) {
+          this.clearRect()
+          this.reFill()
+          this.currentPolygon.filling()
+          this.polygons.push(this.currentPolygon)
+          this.currentPolygon = ''
+        }
+      },
+      reFill () {
+        this.polygons.forEach((polygon, index) => {
+          polygon.filling()
+        })
+      },
+      reStroke () {
+        if (this.currentPolygon.dots.length > 0) this.currentPolygon.reStroke()
+        else this.currentPolygon = ''
       },
       retract () {
-        this.clearRect()
-        for (let i = 0; i < this.polygons.length; i++) {
-          this.polygons[i].reDraw()
+        if (this.editing && this.currentPolygon) {
+          this.clearRect()
+          this.reFill()
+          this.reStroke()
         }
-        this.currentPolygon.dots.pop()
-        if (this.currentPolygon.dots.length > 0) this.currentPolygon.reDraw()
-        else this.currentPolygon = ''
       },
       clearRect () {
         this.ctx.clearRect(0, 0, this.imgBoxW, this.imgBoxH)
-      },
-      imgReload (callback) {
-        let _this = this
-        this.$refs.bgImg.onload = () => {
-          this.x = 0
-          this.y = 0
-          _this.$nextTick(function () {
-            _this.canvasContainerW = ~~(window.getComputedStyle(_this.$refs.canvasContainer).width.replace('px', ''))
-            _this.canvasContainerH = ~~(window.getComputedStyle(_this.$refs.canvasContainer).height.replace('px', ''))
-            _this.imgBoxW = _this.$refs.bgImg.width
-            _this.imgBoxH = _this.$refs.bgImg.height
-            if (_this.imgBoxW > _this.canvasContainerW) {
-              _this.scale = _this.canvasContainerW / _this.imgBoxW
-            }
-            if (_this.imgBoxH * _this.scale > _this.canvasContainerH) {
-              _this.scale = _this.canvasContainerH / _this.imgBoxH
-            }
-            _this.x = -(_this.imgBoxW - _this.imgBoxW * _this.scale) / 2 + (_this.canvasContainerW - _this.imgBoxW * _this.scale) / 2
-            _this.y = -(_this.imgBoxH - _this.imgBoxH * _this.scale) / 2 + (_this.canvasContainerH - _this.imgBoxH * _this.scale) / 2
-            callback && callback()
-          })
-        }
       },
       mousedownTarget (e) {
         e.preventDefault()
@@ -242,7 +283,7 @@
           this.startMove(startX, startY)
         } else {
           if (this.currentPolygon) {
-            this.currentPolygon.draw({x: offsetX, y: offsetY})
+            this.drawPolygon({offsetX, offsetY})
           } else {
             this.createPolygon({offsetX, offsetY})
           }
@@ -288,15 +329,45 @@
   }
 </script>
 <style scoped>
-  .canvas-container {
-    color: red;
+  .header {
+    height: 50px;
+    line-height: 50px;
+    padding: 0 20px;
+  }
+  .main-container {
+    width: 100%;
+    height: calc(100% - 50px);
+  }
+
+  .tools {
+    padding: 0 10px;
+    height: 100%;
+  }
+  .tool-item {
+    height: 40px;
+  }
+  .canvas-c {
+    height: 100%;
+    position: relative;
+  }
+  .bg-img-num1 {
     position: absolute;
     left: 0;
     right: 0;
     top: 0;
     bottom: 0;
-    height: 90%;
-    width: 90%;
+    color: rgba(255,255,255,0.65);
+    background-color: #24292e;
+    background-image: url(../../assets/images/star-bg.svg),linear-gradient(#191c20, #24292e 15%);
+    background-repeat: repeat-x;
+    background-position: center 0, 0 0, 0 0;
+  }
+  .canvas-container {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
     margin: auto;
     overflow: hidden;
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC');
