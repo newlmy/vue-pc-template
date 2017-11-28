@@ -23,6 +23,14 @@ const RouterConfig = [
     children: []
   },
   {
+    path: '/point',
+    component: resolve => require(['views/point/index'], resolve),
+    meta: {
+      title: '标点'
+    },
+    children: []
+  },
+  {
     path: '/test',
     component: resolve => require(['views/test/index'], resolve),
     meta: {
