@@ -2,7 +2,7 @@
   <div class="bg-img-num1">
     <el-row>
       <div class="header">
-        {{imgName}}
+        {{file && file.name}}
       </div>
     </el-row>
     <el-row class="main-container">
@@ -60,8 +60,9 @@
 </template>
 <script>
   import {formatTime} from 'utils/util'
+  import {fileTransformDataURL, isImage, getFile, autoDownload, dataTransformJSONDataURL} from 'utils/file'
   class Point {
-    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 5}) {
+    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 2}) {
       this.ctx = ctx
       this.dotRadius = dotRadius
       this.strokeStyle = strokeStyle
@@ -96,20 +97,11 @@
       this.points.length > 0 && this.points.pop()
     }
   }
-  let JSONDownload = function (content, filename) {
-    let eleLink = document.createElement('a')
-    eleLink.download = filename
-    eleLink.style.display = 'none'
-    let blob = new Blob([content])
-    eleLink.href = URL.createObjectURL(blob)
-    document.body.appendChild(eleLink)
-    eleLink.click()
-    document.body.removeChild(eleLink)
-  }
   export default {
     name: 'polygon',
     data: () => {
       return {
+        dotRadius: '',
         canvasContainerW: '',
         canvasContainerH: '',
         imgBoxW: 0,
@@ -128,15 +120,17 @@
         scale: 1,
         editing: false,
         img: '',
-        imgName: ''
+        file: ''
       }
     },
     components: {},
-    beforeCreate () {},
+    beforeCreate () {
+    },
     created () {},
     beforeMount () {},
     mounted () {
       let _this = this
+      _this.dotRadius = _this.$route.query.dotRadius ? _this.$route.query.dotRadius : 2
       _this.$nextTick(() => {
         _this.canvasContainerW = ~~(window.getComputedStyle(_this.$refs.canvasContainer).width.replace('px', ''))
         _this.canvasContainerH = ~~(window.getComputedStyle(_this.$refs.canvasContainer).height.replace('px', ''))
@@ -174,17 +168,12 @@
         this.scale = 1
       },
       previewImg (e) {
-        if (!/\.(gif|jpg|jpeg|png|bmp|GIF|JPG|PNG)$/.test(e.target.value)) {
+        this.file = getFile({e})
+        if (!this.file && !isImage(this.file.ext)) {
           this.$alert('请选择以下图片类型：.gif/jpeg/jpg/png/bmp', '提示')
           return false
         }
-        this.file = e.target.files[0]
-        this.imgName = this.file.name
-        let reader = new FileReader()
-        reader.onload = (e) => {
-          this.img = e.target.result
-        }
-        reader.readAsDataURL(this.file)
+        this.img = fileTransformDataURL(this.file.file)
       },
       getCanvas () {
         this.canvas = document.getElementById('canvas-layer')
@@ -198,14 +187,16 @@
         this.targets.points.forEach((point, index) => {
           points.push({x: point.x, y: point.y})
         })
-        if (points.length < 0 || !this.imgName) {
+        if (points.length < 0 || !this.file) {
           this.$alert('暂无标注数据，请先标注', '提示')
           return false
         }
-        JSONDownload(JSON.stringify(points), '' + this.imgName.substring(0, this.imgName.lastIndexOf('.')) + '_' + formatTime().format('yyyyMMdd') + '.json')
+        let dataURL = dataTransformJSONDataURL(points)
+        let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.json'
+        autoDownload({dataURL, filename})
       },
       createPoint ({offsetX, offsetY}) {
-        this.currentTarget = new Point({ctx: this.ctx})
+        this.currentTarget = new Point({ctx: this.ctx, dotRadius: this.dotRadius})
         this.currentTarget.draw({x: offsetX, y: offsetY})
       },
       retract () {

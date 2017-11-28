@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-img-num1">
+  <div class="bg-img-num1" ref="cropper">
     <el-row>
       <div class="header">
-        {{imgName}}
+        {{file && file.name}}
       </div>
     </el-row>
     <el-row class="main-container">
@@ -33,7 +33,7 @@
         </el-row>
         <el-row class="tool-item">
           <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
-            <el-button @click="getCanvasImg">导出</el-button>
+            <el-button @click="getCanvasImg({})">导出</el-button>
           </el-tooltip>
         </el-row>
       </el-col>
@@ -65,6 +65,7 @@
 </template>
 <script>
   import {formatTime} from 'utils/util'
+  import {fileTransformDataURL, isImage, getFile, autoDownload, canvasTransformDataURL} from 'utils/file'
   class Polygon {
     constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(79, 205, 66, .5)', dotRadius = 3}) {
       this.ctx = ctx
@@ -152,7 +153,7 @@
         editing: false,
         retractCount: 0,
         img: '',
-        imgName: ''
+        file: ''
       }
     },
     components: {},
@@ -178,7 +179,7 @@
         console.log(e)
         e.preventDefault()
         if (e && (e.ctrlKey || e.metaKey) && (e.keyCode === 32 || e.keyCode === 8)) _this.finishPolygon()
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getCanvasImg()
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getCanvasImg({})
         if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) _this.retract()
         if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
       }
@@ -199,17 +200,12 @@
         this.scale = 1
       },
       previewImg (e) {
-        if (!/\.(gif|jpg|jpeg|png|bmp|GIF|JPG|PNG)$/.test(e.target.value)) {
+        this.file = getFile({e})
+        if (!this.file || !isImage(this.file.ext)) {
           this.$alert('请选择以下图片类型：.gif/jpeg/jpg/png/bmp', '提示')
           return false
         }
-        this.file = e.target.files[0]
-        this.imgName = this.file.name
-        let reader = new FileReader()
-        reader.onload = (e) => {
-          this.img = e.target.result
-        }
-        reader.readAsDataURL(this.file)
+        this.img = fileTransformDataURL(this.file.file)
       },
       getCanvas () {
         this.canvas = document.getElementById('canvas-layer')
@@ -218,25 +214,10 @@
       clickEdit () {
         this.editing = !this.editing
       },
-      getCanvasImg () {
-        let type = 'png'
-        let imgdata = this.canvas.toDataURL('image/png')
-        let fixtype = function (type) {
-          type = type.toLocaleLowerCase().replace(/jpg/i, 'jpeg')
-          let r = type.match(/png|jpeg|bmp|gif/)[0]
-          return 'image/' + r
-        }
-        imgdata = imgdata.replace(fixtype(type), 'image/octet-stream')
-        let savaFile = function (data, filename) {
-          let saveLink = document.createElementNS('http://www.w3.org/1999/xhtml', 'a')
-          saveLink.href = data
-          saveLink.download = filename
-          let event = document.createEvent('MouseEvents')
-          event.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
-          saveLink.dispatchEvent(event)
-        }
-        let filename = '' + this.imgName.substring(0, this.imgName.lastIndexOf('.')) + '_' + formatTime().format('yyyyMMdd') + '.' + type
-        savaFile(imgdata, filename)
+      getCanvasImg ({type = 'png'}) {
+        let dataURL = canvasTransformDataURL({canvas: this.canvas, imgType: type})
+        let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.' + type
+        autoDownload({dataURL, filename})
       },
       createPolygon ({offsetX, offsetY}) {
         this.currentPolygon = new Polygon({ctx: this.ctx})
