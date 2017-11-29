@@ -6,33 +6,62 @@
       </div>
     </el-row>
     <el-row class="main-container">
-      <el-col :span="2" class="tools">
+      <el-col :span="4" class="tools">
         <el-row class="tool-item">
-          打点数：{{targets.points && targets.points.length > 0 ? targets.points.length : 0}}
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="6">
+            <el-tooltip class="item" effect="dark" content="" placement="top">
+              <label for="file_input" class="el-button el-tooltip item el-button--default">
+                选图
+                <input type="file" id="file_input"  @change="selectImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
+              </label>
+            </el-tooltip>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="6">
+            <el-tooltip class="item" effect="dark" content="Shift" placement="top">
+              <el-button @click="clickEdit">切换</el-button>
+            </el-tooltip>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="6">
+            <el-tooltip class="item" effect="dark" content="Ctrl + Z" placement="top">
+              <el-button @click="retract">返回</el-button>
+            </el-tooltip>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="6">
+            <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="top">
+              <el-button @click="getJSON">导出</el-button>
+            </el-tooltip>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" :xl="6">
+            <label for="josn_input" class="el-button el-tooltip item el-button--default">
+              导入JSON文件
+              <input type="file" id="josn_input"  @change="selectJSON" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
+            </label>
+          </el-col>
+
         </el-row>
         <el-row class="tool-item">
-          <label for="file_input" class="el-button el-tooltip item el-button--default">
-            选图
-            <input type="file" id="file_input"  @change="selectImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
-          </label>
+          <el-col :xs="24" :sm="24" :md="12" :lg="8" :xl="4">
+            标记个数：
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="12" :lg="6" :xl="20">
+            {{targets.points && targets.points.length > 0 ? targets.points.length : 0}}
+          </el-col>
         </el-row>
         <el-row class="tool-item">
-          <el-tooltip class="item" effect="dark" content="Shift" placement="right-start">
-            <el-button @click="clickEdit">切换</el-button>
-          </el-tooltip>
+          <div style="position: relative">
+            <span class="demonstration">设置标记点大小：</span>
+<!--
+            <span style="display: block; background-color: #fff;margin-top: 10px;" :style="{width: dotRadius + 'px', height: dotRadius + 'px',borderRadius: dotRadius + 'px', 'transform': 'scale(' + scale + ',' + scale + ') '}"></span>
+-->
+          </div>
         </el-row>
-        <el-row class="tool-item">
-          <el-tooltip class="item" effect="dark" content="Ctrl + Z" placement="right-start">
-            <el-button @click="retract">返回</el-button>
-          </el-tooltip>
-        </el-row>
-        <el-row class="tool-item">
-          <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
-            <el-button @click="getJSON">导出</el-button>
-          </el-tooltip>
+        <el-row>
+          <div class="block">
+            <el-slider v-model="dotRadius" :show-tooltip="false" @change="sliderChange"></el-slider>
+          </div>
         </el-row>
       </el-col>
-      <el-col :span="22" class="canvas-c">
+      <el-col :span="20" class="canvas-c">
         <div class="canvas-container" ref="canvasContainer">
           <div
             class="canvas-actual-layer"
@@ -53,6 +82,14 @@
             </div>
             <canvas id="canvas-layer" class="canvas" :width="imgBoxW" :height="imgBoxH"></canvas>
           </div>
+          <div class="canvas-move"
+               @mousedown="mousedownTargetOut"
+               @mouseout="mouseoutTarget"
+               @mousemove="mousemoveTarget"
+               @mouseup="mouseupTarget"
+               @mousewheel="scaleImg"
+          >
+          </div>
         </div>
       </el-col>
     </el-row>
@@ -60,48 +97,57 @@
 </template>
 <script>
   import {formatTime} from 'utils/util'
-  import {fileTransformDataURL, isImage, getFile, autoDownload, dataTransformJSONDataURL} from 'utils/file'
+  import {fileTransformDataURL, isImage, isJSON, getFile, autoDownload, dataTransformJSONDataURL, fileTransformJSON} from 'utils/file'
   class Point {
-    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 2}) {
+    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 2, x = 0, y = 0}) {
       this.ctx = ctx
       this.dotRadius = dotRadius
       this.strokeStyle = strokeStyle
       this.lineWidth = lineWidth
       this.fillStyle = fillStyle
-      this.x = 0
-      this.y = 0
-    }
-    draw ({x, y}) {
       this.x = x
       this.y = y
+    }
+    draw ({dotRadius = this.dotRadius}) {
+      this.dotRadius = dotRadius
       this.ctx.beginPath()
       this.ctx.fillStyle = this.fillStyle
       this.ctx.lineWidth = this.lineWidth
-      this.ctx.arc(x, y, this.dotRadius, 0, Math.PI * 2)
+      this.ctx.arc(this.x, this.y, dotRadius, 0, Math.PI * 2)
       this.ctx.fill()
     }
   }
   class PointGroup {
-    constructor () {
+    constructor ({ctx, dotRadius = 2}) {
+      this.ctx = ctx
+      this.dotRadius = dotRadius
       this.points = []
     }
-    draw () {
+    reDraw ({dotRadius = this.dotRadius}) {
+      this.dotRadius = dotRadius
       this.points.forEach((point, index) => {
-        point.draw({x: point.x, y: point.y})
+        point.draw({x: point.x, y: point.y, dotRadius})
       })
     }
-    add ({point}) {
-      this.points.push(point)
+    add ({x, y, dotRadius = this.dotRadius}) {
+      this.dotRadius = dotRadius
+      let dot = new Point({ctx: this.ctx, dotRadius: this.dotRadius, x, y})
+      dot.draw({})
+      this.points.push(dot)
+      return dot
     }
     del () {
       this.points.length > 0 && this.points.pop()
+    }
+    clear () {
+      this.points = []
     }
   }
   export default {
     name: 'polygon',
     data: () => {
       return {
-        dotRadius: '',
+        dotRadius: 2,
         canvasContainerW: '',
         canvasContainerH: '',
         imgBoxW: 0,
@@ -150,7 +196,7 @@
         if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) _this.retract()
         if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
       }
-      _this.targets = new PointGroup()
+      _this.targets = new PointGroup({ctx: _this.ctx, dotRadius: _this.dotRadius})
     },
     beforeUpdate () {},
     updated () {},
@@ -161,15 +207,33 @@
         this.initCanvas()
         this.previewImg(e)
       },
+      selectJSON (e) {
+        this.file = getFile({e})
+        if (!this.file || !isJSON(this.file.ext)) {
+          this.$alert('请选择以下JSON文件：.json', '提示')
+          return false
+        }
+        let promise = fileTransformJSON(this.file.file)
+        promise.then((result) => {
+          let data = JSON.parse(result.target.result)
+          if (data.length <= 0) return false
+          this.clearRect()
+          this.targets.clear()
+          data.forEach((dot, index) => {
+            this.targets.add({x: dot.x, y: dot.y})
+          })
+        })
+      },
       initCanvas () {
         this.ctx && this.clearRect()
-        this.targets = new PointGroup()
+        this.targets = new PointGroup({ctx: this.ctx, dotRadius: this.dotRadius})
         this.currentTarget = ''
         this.scale = 1
+        this.dotRadius = 2
       },
       previewImg (e) {
         this.file = getFile({e})
-        if (!this.file && !isImage(this.file.ext)) {
+        if (!this.file || !isImage(this.file.ext)) {
           this.$alert('请选择以下图片类型：.gif/jpeg/jpg/png/bmp', '提示')
           return false
         }
@@ -203,13 +267,18 @@
         if (this.editing && this.currentTarget) {
           this.clearRect()
           this.targets.del()
-          this.targets.draw()
+          this.targets.reDraw({})
         }
       },
       clearRect () {
         this.ctx.clearRect(0, 0, this.imgBoxW, this.imgBoxH)
       },
+      sliderChange (value) {
+        this.clearRect()
+        this.targets.reDraw({dotRadius: value})
+      },
       mousedownTarget (e) {
+        console.log(2132313)
         e.preventDefault()
         let offsetX = e.offsetX
         let offsetY = e.offsetY
@@ -218,12 +287,17 @@
           let startY = e.clientY
           this.startMove(startX, startY)
         } else {
-          this.createPoint({offsetX, offsetY})
-          this.targets.add({point: this.currentTarget})
+          this.currentTarget = this.targets.add({x: offsetX, y: offsetY})
         }
       },
+      mousedownTargetOut (e) {
+        e.preventDefault()
+        let startX = e.clientX
+        let startY = e.clientY
+        this.startMove(startX, startY)
+      },
       mouseoutTarget (e) {
-        if (!this.editing) this.endMove()
+        this.endMove()
       },
       mousemoveTarget (e) {
         e.preventDefault()
@@ -261,6 +335,11 @@
     }
   }
 </script>
+<style>
+  .el-slider__bar, .el-slider__button, .el-slider__button.hover, .el-slider__button.dragging {
+    background-color: rgba(255, 113, 98, 1);
+  }
+</style>
 <style scoped>
   .header {
     height: 50px;
@@ -268,6 +347,7 @@
     padding: 0 20px;
   }
   .main-container {
+    font-size: 14px;
     width: 100%;
     height: calc(100% - 50px);
   }
@@ -277,7 +357,10 @@
     height: 100%;
   }
   .tool-item {
-    height: 40px;
+    margin: 10px 0;
+  }
+  .tool-item .el-button {
+    margin-bottom: 10px;
   }
   .canvas-c {
     height: 100%;
@@ -305,8 +388,16 @@
     overflow: hidden;
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC');
   }
+  .canvas-move {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+  }
   .canvas-actual-layer {
     position: relative;
+    z-index: 2;
   }
   .canvas {
     position: absolute;
