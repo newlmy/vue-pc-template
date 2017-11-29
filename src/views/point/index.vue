@@ -50,9 +50,7 @@
         <el-row class="tool-item">
           <div style="position: relative">
             <span class="demonstration">设置标记点大小：</span>
-<!--
             <span style="display: block; background-color: #fff;margin-top: 10px;" :style="{width: dotRadius + 'px', height: dotRadius + 'px',borderRadius: dotRadius + 'px', 'transform': 'scale(' + scale + ',' + scale + ') '}"></span>
--->
           </div>
         </el-row>
         <el-row>
