@@ -50,12 +50,17 @@
         <el-row class="tool-item">
           <div style="position: relative">
             <span class="demonstration">设置标记点大小：</span>
-            <span style="display: block; background-color: #fff;margin-top: 10px;" :style="{width: dotRadius + 'px', height: dotRadius + 'px',borderRadius: dotRadius + 'px', 'transform': 'scale(' + scale + ',' + scale + ') '}"></span>
           </div>
         </el-row>
         <el-row>
           <div class="block">
-            <el-slider v-model="dotRadius" :show-tooltip="false" @change="sliderChange"></el-slider>
+            <el-input-number
+              v-model="dotRadius"
+              @change="sliderChange"
+              :min="1"
+              :max="20"
+              label="半径">
+            </el-input-number>
           </div>
         </el-row>
       </el-col>
@@ -97,11 +102,9 @@
   import {formatTime} from 'utils/util'
   import {fileTransformDataURL, isImage, isJSON, getFile, autoDownload, dataTransformJSONDataURL, fileTransformJSON} from 'utils/file'
   class Point {
-    constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 2, x = 0, y = 0}) {
+    constructor ({ctx, fillStyle = 'rgba(255, 113, 98, 1)', dotRadius = 2, x = 0, y = 0}) {
       this.ctx = ctx
       this.dotRadius = dotRadius
-      this.strokeStyle = strokeStyle
-      this.lineWidth = lineWidth
       this.fillStyle = fillStyle
       this.x = x
       this.y = y
@@ -110,7 +113,6 @@
       this.dotRadius = dotRadius
       this.ctx.beginPath()
       this.ctx.fillStyle = this.fillStyle
-      this.ctx.lineWidth = this.lineWidth
       this.ctx.arc(this.x, this.y, dotRadius, 0, Math.PI * 2)
       this.ctx.fill()
     }
@@ -194,7 +196,6 @@
         if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) _this.retract()
         if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
       }
-      _this.targets = new PointGroup({ctx: _this.ctx, dotRadius: _this.dotRadius})
     },
     beforeUpdate () {},
     updated () {},
@@ -257,10 +258,6 @@
         let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.json'
         autoDownload({dataURL, filename})
       },
-      createPoint ({offsetX, offsetY}) {
-        this.currentTarget = new Point({ctx: this.ctx, dotRadius: this.dotRadius})
-        this.currentTarget.draw({x: offsetX, y: offsetY})
-      },
       retract () {
         if (this.editing && this.currentTarget) {
           this.clearRect()
@@ -272,11 +269,14 @@
         this.ctx.clearRect(0, 0, this.imgBoxW, this.imgBoxH)
       },
       sliderChange (value) {
+        this.dotRadius = value
+        if (!this.targets || this.targets.points.length <= 0) {
+          return false
+        }
         this.clearRect()
         this.targets.reDraw({dotRadius: value})
       },
       mousedownTarget (e) {
-        console.log(2132313)
         e.preventDefault()
         let offsetX = e.offsetX
         let offsetY = e.offsetY
@@ -285,6 +285,9 @@
           let startY = e.clientY
           this.startMove(startX, startY)
         } else {
+          if (!this.targets || this.targets.points.length <= 0) {
+            this.targets = new PointGroup({ctx: this.ctx, dotRadius: this.dotRadius})
+          }
           this.currentTarget = this.targets.add({x: offsetX, y: offsetY})
         }
       },
