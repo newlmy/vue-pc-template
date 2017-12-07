@@ -393,7 +393,7 @@
       send () {
         if (!this.squareness.length) return false
         this.editing = false
-        this.xmlObj.annotation.filename = this.file.name
+        this.xmlObj.annotation.filename = this.file.file.name
         this.xmlObj.annotation.size.width = this.drawBard.imgBoxW
         this.xmlObj.annotation.size.height = this.drawBard.imgBoxH
         let obj = []
