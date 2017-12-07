@@ -52,6 +52,36 @@ function fileTransformJSON (file) {
   })
   return promise
 }
+function textTransformDataURL (text) {
+  return URL.createObjectURL(new Blob([text]))
+}
+function toXml (obj, arrTagKey, inTag) {
+  if (obj === null || obj === undefined) return ''
+  const type = typeof obj
+  switch (type) {
+    case 'boolean':
+    case 'number':
+    case 'string':
+      return inTag ? obj.toString() : `<value>${obj}</value>`
+    case 'object':
+      let innerXml = ''
+      if (obj instanceof Array) {
+        for (let index in obj) {
+          let item = obj[index]
+          let key = arrTagKey && item[arrTagKey]
+          innerXml += (key ? `<${key}>${toXml(item, arrTagKey, true)}</${key}>` : toXml(item, arrTagKey, false))
+        }
+      } else {
+        for (let key in obj) {
+          if (key !== arrTagKey) innerXml += `<${key}>${toXml(obj[key], arrTagKey, true)}</${key}>`
+        }
+      }
+      return innerXml
+    default:
+      throw new TypeError('unsupport type:' + type)
+  }
+}
+
 function autoDownload ({dataURL, filename}) {
   let eleLink = document.createElement('a')
   eleLink.download = filename
@@ -61,4 +91,4 @@ function autoDownload ({dataURL, filename}) {
   eleLink.click()
   document.body.removeChild(eleLink)
 }
-export {fixType, isImage, isJSON, getFile, autoDownload, fileTransformDataURL, canvasTransformDataURL, dataTransformJSONDataURL, fileTransformJSON}
+export {fixType, isImage, isJSON, getFile, autoDownload, fileTransformDataURL, textTransformDataURL, toXml, canvasTransformDataURL, dataTransformJSONDataURL, fileTransformJSON}

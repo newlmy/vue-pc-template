@@ -38,8 +38,8 @@ const RouterConfig = [
     }
   },
   {
-    path: '/polygon/paper',
-    component: resolve => require(['views/polygon/paper'], resolve),
+    path: '/polygon/test',
+    component: resolve => require(['views/polygon/test'], resolve),
     meta: {
       title: '多边形'
     }

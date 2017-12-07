@@ -35,10 +35,7 @@
              @mousedown="mousedownTarget"
              @mouseout="mouseoutTarget"
         >
-          <img
-            :src="img"
-            ref="targetImg"
-          />
+          <img :src="img" alt="" style="display:block" ref="targetImg">
           <div
             class="vue-selected-square"
             v-for="(item, index) in squareness"
@@ -81,7 +78,8 @@
   </div>
 </template>
 <script>
-  import axios from 'axios'
+  import {formatTime} from 'utils/util'
+  import {fileTransformDataURL, getFile, isImage, autoDownload, textTransformDataURL, toXml} from 'utils/file'
   import {isEmpty} from 'utils/index'
   class DrawBard {
     constructor ({width = 0, height = 0, startClientX = 0, startClientY = 0, imgBoxW = 0, imgBoxH = 0, moveX = 0, moveY = 0}) {
@@ -251,17 +249,31 @@
     name: 'test',
     data () {
       return {
-        a: 1,
-        b: '',
         rotate: 0,
         count: '',
-        open: true,
         editing: false,
         img: '',
         squareness: [],
         support: '',
         drawBard: {},
-        currentSquare: {}
+        currentSquare: {},
+        xmlObj: {
+          annotation: {
+            folder: 'OXIIIT',
+            filename: '',
+            source: {
+              database: 'OXFORD_IIIT Pet Datase',
+              annotation: 'OXIIIT',
+              image: 'flickr'
+            },
+            size: {
+              width: '',
+              height: '',
+              depth: '3'
+            },
+            objects: []
+          }
+        }
       }
     },
     watch: {
@@ -362,17 +374,12 @@
         this.currentSquare.isMove && this.currentSquare.endMove()
       },
       uploadImg (e) {
-        this.file = e.target.files[0]
-        if (!/\.(gif|jpg|jpeg|png|bmp|GIF|JPG|PNG)$/.test(e.target.value)) {
+        this.file = getFile({e})
+        if (!this.file || !isImage(this.file.ext)) {
           this.$alert('请选择以下图片类型：.gif/jpeg/jpg/png/bmp', '提示')
           return false
         }
-        var reader = new FileReader()
-        reader.onload = (e) => {
-          this.img = e.target.result
-        }
-        reader.readAsDataURL(this.file)
-        this.open = true
+        this.img = fileTransformDataURL(this.file.file)
       },
       clickEdit () {
         this.drawBard.editing = !this.drawBard.editing
@@ -385,19 +392,33 @@
       },
       send () {
         if (!this.squareness.length) return false
+        this.editing = false
+        this.xmlObj.annotation.filename = this.file.name
+        this.xmlObj.annotation.size.width = this.drawBard.imgBoxW
+        this.xmlObj.annotation.size.height = this.drawBard.imgBoxH
         let obj = []
         this.squareness.forEach((item) => {
-          if (item.w > 0 && item.h > 0) obj.push({w: item.w, h: item.h, x: item.startOffsetX, y: item.startOffsetY, label: ''})
+          if (item.w > 0 && item.h > 0) {
+            obj.push({
+              key: 'object',
+              name: '可乐',
+              pose: 'Frontal',
+              truncated: 0,
+              occluded: 0,
+              bndbox: {
+                xmin: item.startOffsetX,
+                ymin: item.startOffsetY,
+                xmax: item.startOffsetX * 1 + item.w * 1,
+                ymax: item.startOffsetY * 1 + item.h * 1
+              }
+            })
+          }
         })
-        this.editing = false
-        let formdata = new FormData()
-        formdata.append('file', this.file)
-        formdata.append('marks', JSON.stringify(obj))
-        axios.post('http://192.168.10.117:93/app/add_image', formdata).then((response) => {
-          console.log(response)
-        }).catch((error) => {
-          console.log(error)
-        })
+        this.xmlObj.annotation.objects = obj
+        let text = toXml(this.xmlObj, 'key')
+        let dataURL = textTransformDataURL(text)
+        let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.xml'
+        autoDownload({dataURL, filename})
       },
       initDrawbard () {
         this.drawBard.w = 0
@@ -417,7 +438,6 @@
       }
     },
     mounted () {
-      this.b = this.a
       this.drawBard = new DrawBard({})
       this.drawBard.imgReload({vue: this})
     },
