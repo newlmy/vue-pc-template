@@ -34,6 +34,7 @@
                 }"
              @mousedown="mousedownTarget"
              @mouseout="mouseoutTarget"
+             @mousewheel="scaleImg"
         >
           <img :src="img" alt="" style="display:block" ref="targetImg">
           <div
@@ -43,7 +44,7 @@
             :style="{
                 'width': item.w + 'px',
                 'height': item.h + 'px',
-                'transform': 'translate3d('+ item.startOffsetX / drawBard.scale + 'px,' + item.startOffsetY / drawBard.scale + 'px,' + '0)'
+                'transform': 'translate3d('+ item.startOffsetX + 'px,' + item.startOffsetY + 'px,' + '0)'
               }"
           >
             <span class="square-info" v-if="item.w > 0">{{ item.w }} × {{ item.h }}</span>
@@ -94,21 +95,14 @@
       this.moveX = moveX
       this.moveY = moveY
       this.scale = 1
-      this.canScale = false
       this.editing = false
       this.moving = false
-    }
-    startScale () {
-      this.canScale = true
     }
     changeSize ({change}) {
       let coe = 0.2
       coe = coe / this.imgBoxW > coe / this.imgBoxH ? coe / this.imgBoxH : coe / this.imgBoxW
       let num = coe * change
       num < 0 ? this.scale += Math.abs(num) : this.scale > Math.abs(num) ? this.scale -= Math.abs(num) : this.scale
-    }
-    endScale () {
-      this.canScale = false
     }
     startMove (startX, startY) {
       this.moving = true
@@ -133,6 +127,11 @@
         this.maxDrawWidth = this.imgBoxW
         this.maxDrawHeight = this.imgBoxH
         this.rotate = 0
+        if (this.imgBoxW > this.w) this.scale = this.w / this.imgBoxW
+        if (this.imgBoxH * this.scale > this.h) this.scale = this.h / this.imgBoxH
+        console.log(this.scale)
+        this.x = (this.w - this.imgBoxW) / 2
+        this.y = (this.h - this.imgBoxH) / 2
       }
     }
   }
@@ -253,6 +252,7 @@
         count: '',
         editing: false,
         img: '',
+        file: '',
         squareness: [],
         support: '',
         drawBard: {},
@@ -431,6 +431,7 @@
         this.drawBard.maxDrawHeight = 0
         this.drawBard.moveX = 0
         this.drawBard.moveY = 0
+        this.drawBard.scale = 1
         this.drawBard.editing = false
         this.drawBard.moving = false
         this.currentSquare = {}
@@ -438,8 +439,14 @@
       }
     },
     mounted () {
+      let _this = this
       this.drawBard = new DrawBard({})
       this.drawBard.imgReload({vue: this})
+      document.onkeydown = function (e) {
+        e.preventDefault()
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.send()
+        if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
+      }
     },
     destroyed () {
       this.editing = false

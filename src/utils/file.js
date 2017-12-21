@@ -35,9 +35,13 @@ function fileTransformDataURL (file) {
   return URL.createObjectURL(file)
 }
 function canvasTransformDataURL ({canvas, imgType = 'png'}) {
-  let type = fixType(imgType)
-  let dataURL = canvas.toDataURL(type)
-  return dataURL
+  let promise = new Promise((resolve, reject) => {
+    canvas.toBlob(function (blob) {
+      let d = URL.createObjectURL(blob)
+      resolve(d)
+    })
+  })
+  return promise
 }
 function dataTransformJSONDataURL (data) {
   return URL.createObjectURL(new Blob([JSON.stringify(data)]))

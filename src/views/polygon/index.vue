@@ -124,7 +124,7 @@
         this.ctx.lineTo(dot.x, dot.y)
       })
       this.ctx.stroke()
-      if (this.dots.length > 1) {
+      if (this.dots.length > 0) {
         this.lastX = this.dots[this.dots.length - 1].x
         this.lastY = this.dots[this.dots.length - 1].y
       }
@@ -176,7 +176,6 @@
         _this.y = (_this.canvasContainerH - _this.imgBoxH) / 2
       }
       document.onkeydown = function (e) {
-        console.log(e)
         e.preventDefault()
         if (e && (e.ctrlKey || e.metaKey) && (e.keyCode === 32 || e.keyCode === 8)) _this.finishPolygon()
         if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getCanvasImg({})
@@ -215,9 +214,11 @@
         this.editing = !this.editing
       },
       getCanvasImg ({type = 'png'}) {
-        let dataURL = canvasTransformDataURL({canvas: this.canvas, imgType: type})
-        let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.' + type
-        autoDownload({dataURL, filename})
+        let _this = this
+        canvasTransformDataURL({canvas: this.canvas, imgType: type}).then(function (dataURL) {
+          let filename = '' + _this.file.name + '_' + formatTime().format('yyyyMMdd') + '.' + type
+          autoDownload({dataURL, filename})
+        })
       },
       createPolygon ({offsetX, offsetY}) {
         this.currentPolygon = new Polygon({ctx: this.ctx})
