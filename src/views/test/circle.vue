@@ -51,6 +51,9 @@
                 'height': canvas.h + 'px',
                 'transform': 'scale(' + canvas.scale + ',' + canvas.scale + ') ' + 'translate3d('+ canvas.x / canvas.scale + 'px,' + canvas.y / canvas.scale + 'px,' + '0)'
                 }"
+            @mousedown="startPaint"
+            @mousemove="painting"
+            @mouseup="stopPaint"
           >
             <div class="paint-box-img">
               <img :src="canvas.img" alt="" style="display:block" ref="img">
@@ -62,9 +65,6 @@
                   'width': canvas.w + 'px',
                   'height': canvas.h + 'px'
                 }"
-              @mousedown="startPaint"
-              @mousemove="painting"
-              @mouseup="stopPaint"
             >
             </svg>
           </div>
@@ -124,7 +124,7 @@
     }
   }
   class Circle {
-    constructor ({svg, x, y, radius = 2, color = '#f06', width = '2px', active = false, dragPositionX = 'right', dragPositionY = 'bottom', ableChangeX = true, ableChangeY = true}) {
+    constructor ({svg, x, y, radius = 2, color = '#f06', width = '2px', active = false}) {
       this.svg = svg
       this.radius = radius
       this.x = x
@@ -132,13 +132,6 @@
       this.color = color
       this.width = width
       this.active = active
-      this.dragPositionX = dragPositionX
-      this.dragPositionY = dragPositionY
-      this.ableChangeX = ableChangeX
-      this.ableChangeY = ableChangeY
-      console.log(this.radius)
-      console.log(this.x)
-      console.log(this.y)
       this.init({svg, radius, x, y, color, width})
     }
     init ({svg, radius, x, y, color, width}) {
@@ -292,6 +285,10 @@
 */
 
       startPaint (e) {
+        if (this.currentCircle) {
+          this.stopPaint()
+          return
+        }
         e.preventDefault()
         this.polygonMouse.startOffsetX = e.offsetX
         this.polygonMouse.startOffsetY = e.offsetY
@@ -311,9 +308,13 @@
         this.polygonMouse.startClientX = nowX
       },
       stopPaint (e) {
-        if (this.currentCircle.radius > 0) this.circles.push(this.currentCircle)
-        this.currentCircle.setActive({active: false})
-        this.currentCircle = null
+        if (this.currentCircle) {
+          if (this.currentCircle.radius > 0) this.circles.push(this.currentCircle)
+          this.currentCircle.setActive({active: false})
+          this.currentCircle = null
+        } else {
+          return false
+        }
       },
       mousedownTarget (e) {
         e.preventDefault()
