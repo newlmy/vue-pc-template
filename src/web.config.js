@@ -16,9 +16,17 @@ const MenuConfig = [
 const RouterConfig = [
   {
     path: '/',
-    component: resolve => require(['views/polygon/index'], resolve),
+    component: resolve => require(['views/test/circle'], resolve),
     meta: {
-      title: '区块'
+      title: '圆圈工具'
+    },
+    children: []
+  },
+  {
+    path: '/circle',
+    component: resolve => require(['views/test/circle'], resolve),
+    meta: {
+      title: '圆圈工具'
     },
     children: []
   },

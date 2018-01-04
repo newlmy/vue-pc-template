@@ -1,62 +1,90 @@
-/**
-* Created by newlmy on 2017/11/23.
-*/
-
 <template>
-  <el-container class="paint-tool">
-    <el-header>Header</el-header>
-    <el-container>
-      <el-aside width="80px">
-        <label for="file_input" class="el-button el-tooltip item el-button--default">
-          选图
-          <input type="file" id="file_input"  @change="selectImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
-        </label>
-        <el-button @click="selectEdit">切换</el-button>
-      </el-aside>
-      <el-container>
-        <el-main>
-          <div class="paint-tool-main" ref="paintToolMain">
-            <div
-              class="paint-box"
-              :style="{
+  <div class="bg-img-num1" ref="cropper">
+    <el-row>
+      <div class="header">
+        {{file && file.name}}
+      </div>
+    </el-row>
+    <el-row class="main-container">
+      <el-col :span="2" class="tools">
+        <el-row class="tool-item">
+          <label for="file_input" class="el-button el-tooltip item el-button--default">
+            选图
+            <input type="file" id="file_input"  @change="selectImg" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
+          </label>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Shift" placement="right-start">
+            <el-button @click="selectEdit">状态</el-button>
+          </el-tooltip>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Ctrl + Z" placement="right-start">
+            <el-button @click="reback">撤销</el-button>
+          </el-tooltip>
+        </el-row>
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" placement="right-start">
+            <el-button @click="allClear">清除</el-button>
+          </el-tooltip>
+        </el-row>
+<!--
+        <el-row class="tool-item">
+          <label for="json_input" class="el-button el-tooltip item el-button&#45;&#45;default">
+            导入
+            <input type="file" id="json_input"  @change="selectJSON" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
+          </label>
+        </el-row>
+-->
+        <el-row class="tool-item">
+          <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
+            <el-button @click="getJSON">导出</el-button>
+          </el-tooltip>
+        </el-row>
+      </el-col>
+      <el-col :span="22" class="canvas-c">
+        <div class="paint-tool-main" ref="paintToolMain">
+          <div
+            class="paint-box"
+            :style="{
                 'width': canvas.w + 'px',
                 'height': canvas.h + 'px',
                 'transform': 'scale(' + canvas.scale + ',' + canvas.scale + ') ' + 'translate3d('+ canvas.x / canvas.scale + 'px,' + canvas.y / canvas.scale + 'px,' + '0)'
                 }"
-            >
-              <div class="paint-box-img">
-                <img :src="canvas.img" alt="" style="display:block" ref="img">
-              </div>
-              <svg
-                id="svg"
-                style = "border: 3px solid red; position: absolute;top: 0;left: 0;"
-                :style="{
+          >
+            <div class="paint-box-img">
+              <img :src="canvas.img" alt="" style="display:block" ref="img">
+            </div>
+            <svg
+              id="svg"
+              style = "position: absolute;top: 0;left: 0;cursor: crosshair"
+              :style="{
                   'width': canvas.w + 'px',
                   'height': canvas.h + 'px'
                 }"
-                @mousedown="startPaint"
-                @mousemove="painting"
-                @mouseup="stopPaint"
-              >
-              </svg>
-            </div>
-            <div class="paint-box-move-layer"
-                 :class="{'cursor-move': canvas.active, 'paint-box-move-layer-hide': canvas.editing}"
-                 @mousedown="mousedownTarget"
-                 @mousemove="mousemoveTarget"
-                 @mouseout="mouseoutTarget"
-                 @mouseup="mouseupTarget"
-                 @mousewheel="scaleImg"
-            ></div>
+              @mousedown="startPaint"
+              @mousemove="painting"
+              @mouseup="stopPaint"
+            >
+            </svg>
           </div>
-        </el-main>
-      </el-container>
-    </el-container>
-  </el-container>
+          <div class="paint-box-move-layer"
+               :class="{'cursor-move': !canvas.editing, 'paint-box-move-layer-hide': canvas.editing}"
+               @mousedown="mousedownTarget"
+               @mousemove="mousemoveTarget"
+               @mouseout="mouseoutTarget"
+               @mouseup="mouseupTarget"
+               @mousewheel="scaleImg"
+          ></div>
+        </div>
+      </el-col>
+    </el-row>
+  </div>
 </template>
 <script>
   import SVG from 'svg.js'
-  import {getFile, isImage, fileTransformDataURL} from 'utils/file'
+  import {formatTime} from 'utils/util'
+  import {getFile, isImage, fileTransformDataURL, dataTransformJSONDataURL, autoDownload} from 'utils/file'
   class Canvas {
     constructor ({x = 0, y = 0, w = 0, h = 0, scale = 1, active = false, editing = false, img}) {
       this.x = x
@@ -108,6 +136,12 @@
       this.dragPositionY = dragPositionY
       this.ableChangeX = ableChangeX
       this.ableChangeY = ableChangeY
+      console.log(this.radius)
+      console.log(this.x)
+      console.log(this.y)
+      this.init({svg, radius, x, y, color, width})
+    }
+    init ({svg, radius, x, y, color, width}) {
       this.circle = svg.circle(radius).fill('none').stroke({color, width}).move(x, y)
     }
     setActive ({active}) {
@@ -121,59 +155,6 @@
       this.circle.remove()
     }
   }
-/*
-  class Square {
-    constructor ({x = 0, y = 0, r, active = false, info}) {
-      this.x = x
-      this.y = y
-      this.r = r
-      this.active = active
-      this.info = info
-    }
-    setActive () {}
-    drag () {}
-    scale () {}
-    close () {}
-  }
-*/
-  /*
-    class Rectangle {
-      constructor ({x = 0, y = 0, w = 0, h = 0, active = false, info}) {
-        this.x = x
-        this.y = y
-        this.w = w
-        this.h = h
-        this.active = active
-        this.info = info
-      }
-      setActive () {}
-      drag () {}
-      scale () {}
-      close () {}
-    }
-    class Square {
-      constructor ({x = 0, y = 0, r, active = false, info}) {
-        this.x = x
-        this.y = y
-        this.r = r
-        this.active = active
-        this.info = info
-      }
-      setActive () {}
-      drag () {}
-      scale () {}
-      close () {}
-    }
-    class Info {
-      constructor ({x, y, text}) {
-        this.x = x
-        this.y = y
-        this.text = text
-      }
-      setDisplayType () {}
-      setText () {}
-    }
-  */
   export default {
     name: 'Tool',
     data: () => {
@@ -234,14 +215,8 @@
       }
       document.onkeydown = (e) => {
         e.preventDefault()
-/*
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getJSON()
-*/
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) {
-          if (this.circles.length <= 0) return false
-          let circle = this.circles.pop()
-          circle.del()
-        }
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) this.getJSON()
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) this.reback()
         if (e && e.key === 'Shift' || e.keyCode === 16) this.selectEdit()
       }
     },
@@ -252,7 +227,7 @@
     methods: {
       initCanvas () {
         this.circles = []
-        this.scale = 1
+        this.canvas.scale = 1
         this.draw && this.draw.clear()
       },
       previewImg (e) {
@@ -274,6 +249,48 @@
       selectEdit () {
         this.canvas.setEdit({editing: !this.canvas.editing})
       },
+      allClear () {
+        this.draw && this.draw.clear()
+        this.circles = []
+      },
+      reback () {
+        if (this.circles.length <= 0) return false
+        let circle = this.circles.pop()
+        circle.del()
+      },
+      getJSON () {
+        let datas = []
+        this.circles.forEach((circle, index) => {
+          datas.push({x: circle.x, y: circle.y, radius: circle.radius})
+        })
+        if (datas.length < 0 || !this.file) {
+          this.$alert('暂无标注数据，请先标注', '提示')
+          return false
+        }
+        let dataURL = dataTransformJSONDataURL(datas)
+        let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.json'
+        autoDownload({dataURL, filename})
+      },
+/*
+      selectJSON (e) {
+        this.file = getFile({e})
+        if (!this.file || !isJSON(this.file.ext)) {
+          this.$alert('请选择以下JSON文件：.json', '提示')
+          return false
+        }
+        let promise = fileTransformJSON(this.file.file)
+        promise.then((result) => {
+          let data = JSON.parse(result.target.result)
+          if (data.length <= 0) return false
+          this.allClear()
+          data.forEach((circle, index) => {
+            let c = new Circle({svg: this.draw, x: circle.x, y: circle.y, radius: circle.radius})
+            this.circles.push(c)
+          })
+        })
+      },
+*/
+
       startPaint (e) {
         e.preventDefault()
         this.polygonMouse.startOffsetX = e.offsetX
@@ -290,12 +307,11 @@
         let fw = ~~(nowX - this.polygonMouse.startClientX)
         this.currentCircle.setRadius({radius: this.currentCircle.radius + fw > 0 ? this.currentCircle.radius + fw : 0})
         this.currentCircle.circle.on('click', function () {
-          console.log(2323)
         })
         this.polygonMouse.startClientX = nowX
       },
       stopPaint (e) {
-        if (this.currentCircle.radius > 2) this.circles.push(this.currentCircle)
+        if (this.currentCircle.radius > 0) this.circles.push(this.currentCircle)
         this.currentCircle.setActive({active: false})
         this.currentCircle = null
       },
@@ -323,18 +339,13 @@
     }
   }
 </script>
-
 <style scoped>
-  .paint-tool {
+  .paint-tool-main {
     position: absolute;
-    top: 0;
     left: 0;
     right: 0;
+    top: 0;
     bottom: 0;
-  }
-  .paint-tool-main {
-    position: relative;
-    height: 100%;
     overflow: hidden;
     background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC');
   }
@@ -344,34 +355,73 @@
     left: 0;
     right: 0;
     bottom: 0;
-    border: 5px solid yellow;
   }
   .paint-box-move-layer-hide {
     display: none;
   }
   .paint-box {
-    border: 1px solid red;
   }
   .paint-box-img {
-    border: 1px solid green;
 
+  }
+  .header {
+    height: 50px;
+    line-height: 50px;
+    padding: 0 20px;
+  }
+  .main-container {
+    width: 100%;
+    height: calc(100% - 50px);
+  }
+
+  .tools {
+    padding: 0 10px;
+    height: 100%;
+  }
+  .tool-item {
+    height: 40px;
+  }
+  .canvas-c {
+    height: 100%;
+    position: relative;
+  }
+  .bg-img-num1 {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    color: rgba(255,255,255,0.65);
+    background-color: #24292e;
+    background-image: url(../../assets/images/star-bg.svg),linear-gradient(#191c20, #24292e 15%);
+    background-repeat: repeat-x;
+    background-position: center 0, 0 0, 0 0;
+  }
+  .canvas-container {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+    overflow: hidden;
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAAA3NCSVQICAjb4U/gAAAABlBMVEXMzMz////TjRV2AAAACXBIWXMAAArrAAAK6wGCiw1aAAAAHHRFWHRTb2Z0d2FyZQBBZG9iZSBGaXJld29ya3MgQ1M26LyyjAAAABFJREFUCJlj+M/AgBVhF/0PAH6/D/HkDxOGAAAAAElFTkSuQmCC');
+  }
+  .canvas-actual-layer {
+    position: relative;
+  }
+  .canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
   }
   .cursor-move {
     cursor: move;
   }
-  .el-header{
-    background-color: #B3C0D1;
-    color: #333;
-    text-align: center;
-    line-height: 60px;
+  .img-draw {
+    cursor: crosshair;
   }
-  .el-aside {
-    background-color: #D3DCE6;
-    color: #333;
-    text-align: center;
-    line-height: 200px;
-  }
-  body > .el-container {
-    margin-bottom: 40px;
+  #ui-layer {
+    z-index: 3;
   }
 </style>
