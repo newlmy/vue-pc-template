@@ -28,14 +28,12 @@
             <el-button @click="allClear">清除</el-button>
           </el-tooltip>
         </el-row>
-<!--
         <el-row class="tool-item">
-          <label for="json_input" class="el-button el-tooltip item el-button&#45;&#45;default">
+          <label for="json_input" class="el-button el-tooltip item el-button--default">
             导入
             <input type="file" id="json_input"  @change="selectJSON" style="position:absolute;clip:rect(0 0 0 0);left: -1000px;top:0;"/>
           </label>
         </el-row>
--->
         <el-row class="tool-item">
           <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
             <el-button @click="getJSON">导出</el-button>
@@ -43,7 +41,10 @@
         </el-row>
       </el-col>
       <el-col :span="22" class="canvas-c">
-        <div class="paint-tool-main" ref="paintToolMain">
+        <div class="paint-tool-main" ref="paintToolMain"
+         @mousemove="painting"
+         @mouseup="stopPaint"
+        >
           <div
             class="paint-box"
             :style="{
@@ -84,7 +85,7 @@
 <script>
   import SVG from 'svg.js'
   import {formatTime} from 'utils/util'
-  import {getFile, isImage, fileTransformDataURL, dataTransformJSONDataURL, autoDownload} from 'utils/file'
+  import {getFile, isImage, isJSON, fileTransformDataURL, fileTransformJSON, dataTransformJSONDataURL, autoDownload} from 'utils/file'
   class Canvas {
     constructor ({x = 0, y = 0, w = 0, h = 0, scale = 1, active = false, editing = false, img}) {
       this.x = x
@@ -124,24 +125,25 @@
     }
   }
   class Circle {
-    constructor ({svg, x, y, radius = 2, color = '#f06', width = '2px', active = false}) {
+    constructor ({svg, centerX, centerY, radius = 0, color = '#f06', width = '2px', active = false}) {
       this.svg = svg
+      this.centerX = centerX
+      this.centerY = centerY
       this.radius = radius
-      this.x = x
-      this.y = y
+      this.x = centerX - radius
+      this.y = centerY - radius
+      this.diameter = radius * 2
       this.color = color
       this.width = width
       this.active = active
-      this.init({svg, radius, x, y, color, width})
-    }
-    init ({svg, radius, x, y, color, width}) {
-      this.circle = svg.circle(radius).fill('none').stroke({color, width}).move(x, y)
+      this.circle = svg.circle(this.diameter).fill('none').stroke({color, width}).move(this.x, this.y)
     }
     setActive ({active}) {
       this.active = active
     }
     setRadius ({radius}) {
       this.radius = radius
+      this.diameter = radius * 2
       this.circle.radius(radius)
     }
     del () {
@@ -232,6 +234,7 @@
         this.canvas.setImg({img: fileTransformDataURL(this.file.file)})
       },
       selectImg (e) {
+        if (e.target.files.length <= 0) return false
         this.initCanvas()
         this.previewImg(e)
       },
@@ -254,7 +257,7 @@
       getJSON () {
         let datas = []
         this.circles.forEach((circle, index) => {
-          datas.push({x: circle.x, y: circle.y, radius: circle.radius})
+          datas.push({x: circle.centerX, y: circle.centerY, radius: circle.radius})
         })
         if (datas.length < 0 || !this.file) {
           this.$alert('暂无标注数据，请先标注', '提示')
@@ -264,26 +267,23 @@
         let filename = '' + this.file.name + '_' + formatTime().format('yyyyMMdd') + '.json'
         autoDownload({dataURL, filename})
       },
-/*
       selectJSON (e) {
-        this.file = getFile({e})
-        if (!this.file || !isJSON(this.file.ext)) {
+        let file = getFile({e})
+        if (!file || !isJSON(file.ext)) {
           this.$alert('请选择以下JSON文件：.json', '提示')
           return false
         }
-        let promise = fileTransformJSON(this.file.file)
+        let promise = fileTransformJSON(file.file)
         promise.then((result) => {
           let data = JSON.parse(result.target.result)
           if (data.length <= 0) return false
           this.allClear()
           data.forEach((circle, index) => {
-            let c = new Circle({svg: this.draw, x: circle.x, y: circle.y, radius: circle.radius})
+            let c = new Circle({svg: this.draw, centerX: circle.x, centerY: circle.y, radius: circle.radius})
             this.circles.push(c)
           })
         })
       },
-*/
-
       startPaint (e) {
         if (this.currentCircle) {
           this.stopPaint()
@@ -294,18 +294,29 @@
         this.polygonMouse.startOffsetY = e.offsetY
         this.polygonMouse.startClientX = e.clientX
         this.polygonMouse.startClientY = e.clientY
-        this.currentCircle = new Circle({svg: this.draw, x: this.polygonMouse.startOffsetX, y: this.polygonMouse.startOffsetY})
+        this.polygonMouse.defaultClientX = e.clientX
+        this.polygonMouse.defaultClientY = e.clientY
+        this.currentCircle = new Circle({svg: this.draw, centerX: this.polygonMouse.startOffsetX, centerY: this.polygonMouse.startOffsetY})
         this.currentCircle.setActive({active: true})
       },
       painting (e) {
         if (this.currentCircle == null || !this.currentCircle.active) return false
         e.preventDefault()
-        let nowX = e.clientX
-        let fw = ~~(nowX - this.polygonMouse.startClientX)
-        this.currentCircle.setRadius({radius: this.currentCircle.radius + fw > 0 ? this.currentCircle.radius + fw : 0})
+        let nowClientX = e.clientX
+        let fw = ~~(nowClientX - this.polygonMouse.startClientX)
+        let distance = nowClientX - this.polygonMouse.defaultClientX
+        if (distance > 5) {
+          this.currentCircle.setRadius({radius: this.currentCircle.radius + fw})
+        } else if (distance >= -5 && distance <= 0) {
+          this.currentCircle.setRadius({radius: 0})
+        } else if (distance <= 5 && distance > 0) {
+          this.currentCircle.setRadius({radius: 0})
+        } else {
+          this.currentCircle.setRadius({radius: this.currentCircle.radius - fw})
+        }
+        this.polygonMouse.startClientX = nowClientX
         this.currentCircle.circle.on('click', function () {
         })
-        this.polygonMouse.startClientX = nowX
       },
       stopPaint (e) {
         if (this.currentCircle) {
