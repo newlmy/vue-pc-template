@@ -187,7 +187,7 @@
       document.onkeydown = function (e) {
         e.preventDefault()
         if (e && (e.ctrlKey || e.metaKey) && (e.keyCode === 32 || e.keyCode === 8)) _this.finishPolygon()
-        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getCanvasImg({})
+        if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 68) _this.getJSON()
         if (e && (e.ctrlKey || e.metaKey) && e.keyCode === 90) _this.retract()
         if (e && e.key === 'Shift' || e.keyCode === 16) _this.clickEdit()
       }
