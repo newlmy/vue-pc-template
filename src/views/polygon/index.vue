@@ -33,7 +33,7 @@
         </el-row>
         <el-row class="tool-item">
           <el-tooltip class="item" effect="dark" content="Ctrl + D" placement="right-start">
-            <el-button @click="getCanvasImg({})">导出</el-button>
+            <el-button @click="getJSON">导出</el-button>
           </el-tooltip>
         </el-row>
       </el-col>
@@ -65,7 +65,7 @@
 </template>
 <script>
   import {formatTime} from 'utils/util'
-  import {fileTransformDataURL, isImage, getFile, autoDownload, canvasTransformDataURL} from 'utils/file'
+  import {fileTransformDataURL, isImage, getFile, autoDownload, canvasTransformDataURL, dataTransformJSONDataURL} from 'utils/file'
   class Polygon {
     constructor ({ctx, lineWidth = 2, strokeStyle = 'rgba(255, 113, 98, 1)', fillStyle = 'rgba(79, 205, 66, .5)', dotRadius = 3}) {
       this.ctx = ctx
@@ -84,6 +84,7 @@
       this.startY = y
       this.lastX = x
       this.lastY = y
+      this.dots.push({x, y})
       this.ctx.beginPath()
       this.ctx.fillStyle = this.strokeStyle
       this.ctx.lineWidth = 1
@@ -108,6 +109,7 @@
       this.ctx.beginPath()
       this.ctx.moveTo(this.startX, this.startY)
       this.dots.forEach((dot, index) => {
+        if (index === 0) return false
         this.ctx.lineTo(dot.x, dot.y)
       })
       this.ctx.closePath()
@@ -115,12 +117,19 @@
     }
     reStroke () {
       this.dots.pop()
-      this.startDraw({x: this.startX, y: this.startY})
+      this.lastX = this.startX
+      this.lastY = this.startY
+      this.ctx.beginPath()
+      this.ctx.fillStyle = this.strokeStyle
+      this.ctx.lineWidth = 1
+      this.ctx.arc(this.startX, this.startY, this.dotRadius, 0, Math.PI * 2)
+      this.ctx.fill()
       this.ctx.beginPath()
       this.ctx.strokeStyle = this.strokeStyle
       this.ctx.lineWidth = this.lineWidth
       this.ctx.moveTo(this.startX, this.startY)
       this.dots.forEach((dot, index) => {
+        if (index === 0) return false
         this.ctx.lineTo(dot.x, dot.y)
       })
       this.ctx.stroke()
@@ -219,6 +228,15 @@
           let filename = '' + _this.file.name + '_' + formatTime().format('yyyyMMdd') + '.' + type
           autoDownload({dataURL, filename})
         })
+      },
+      getJSON () {
+        let data = []
+        this.polygons.forEach((polygon, index) => {
+          data.push(polygon.dots)
+        })
+        let dataURL = dataTransformJSONDataURL(data)
+        let filename = '' + this.file.name + '.json'
+        autoDownload({dataURL, filename})
       },
       createPolygon ({offsetX, offsetY}) {
         this.currentPolygon = new Polygon({ctx: this.ctx})
